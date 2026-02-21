@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MindConnect – ER Diagram</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background: #fff;
+        }
+
+        .page {
+            width: 2260px;
+            margin: 20px auto;
+            padding: 20px 30px;
+        }
+
+        .page-title {
+            font-size: 15px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 10px;
+        }
+
+        svg {
+            display: block;
+        }
+
+        @media print {
+            .page {
+                margin: 0;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <div class="page-title">Entity Relationship Diagram – MindConnect</div>
+        <svg id="er" width="2260" height="1800" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <script>
+        (function () {
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.getElementById('er');
+
+            // Two layers: lines behind, shapes in front
+            const gLines = svg.appendChild(document.createElementNS(ns, 'g'));
+            const gShapes = svg.appendChild(document.createElementNS(ns, 'g'));
+
+            function $el(tag, attrs, parent) {
+                const e = document.createElementNS(ns, tag);
+                for (const k in attrs) e.setAttribute(k, attrs[k]);
+                parent.appendChild(e);
+                return e;
+            }
+
+            function ln(x1, y1, x2, y2) {
+                $el('line', { x1, y1, x2, y2, stroke: '#000', 'stroke-width': 1.2 }, gLines);
+            }
+
+            function txt(x, y, s, extra, parent) {
+                const t = $el('text', {
+                    x, y,
+                    'text-anchor': 'middle',
+                    'dominant-baseline': 'middle',
+                    'font-family': "'Times New Roman',serif",
+                    'font-size': 12,
+                    ...extra
+                }, parent || gShapes);
+                t.textContent = s;
+                return t;
+            }
+
+            function entityBox(cx, cy, label) {
+                const w = Math.max(130, label.length * 8.6), h = 34;
+                $el('rect', {
+                    x: cx - w / 2, y: cy - h / 2, width: w, height: h,
+                    fill: '#fff', stroke: '#000', 'stroke-width': 1.8
+                }, gShapes);
+                txt(cx, cy, label, { 'font-weight': 'bold' });
+            }
+
+            function attrEllipse(cx, cy, label, ul) {
+                const rx = Math.max(44, label.length * 4.3);
+                $el('ellipse', {
+                    cx, cy, rx, ry: 17,
+                    fill: '#fff', stroke: '#000', 'stroke-width': 1.2
+                }, gShapes);
+                txt(cx, cy, label, { 'font-size': 11, ...(ul ? { 'text-decoration': 'underline' } : {}) });
+            }
+
+            function diamond(cx, cy, label) {
+                const w = 68, h = 30;
+                $el('polygon', {
+                    points: `${cx},${cy - h} ${cx + w},${cy} ${cx},${cy + h} ${cx - w},${cy}`,
+                    fill: '#fff', stroke: '#000', 'stroke-width': 1.5
+                }, gShapes);
+                txt(cx, cy, label, { 'font-size': 10.5 });
+            }
+
+            /* ─── CENTER: USER ─────────────────────────────────────────────── */
+            const UX = 1130, UY = 880;
+            entityBox(UX, UY, 'User');
+
+            // User own attributes – placed in open angular gaps around User
+            const userAttrs = [
+                ['_id', UX - 70, UY - 130, true],
+                ['name', UX - 195, UY - 55, false],
+                ['email', UX - 210, UY + 18, false],
+                ['role', UX - 190, UY + 90, false],
+                ['phone', UX + 55, UY + 140, false],
+                ['isVerified', UX + 205, UY + 75, false],
+                ['createdAt', UX + 215, UY - 15, false],
+                ['firebaseUid', UX + 195, UY - 95, false],
+            ];
+            for (const [lbl, ax, ay, ul] of userAttrs) {
+                ln(ax, ay, UX, UY);
+                attrEllipse(ax, ay, lbl, ul);
+            }
+
+            /* ─── SATELLITE ENTITIES ────────────────────────────────────────
+               Each entry: [label, ex, ey, relLabel, [[attrLabel,dx,dy,ul?], ...]]
+               Diamond auto-placed at 50% between entity and User.
+            ─────────────────────────────────────────────────────────────── */
+            const entities = [
+
+                // TOP CENTER
+                ['Appointment', 1130, 205, 'Books', [
+                    ['_id', -125, -95, true],
+                    ['date', 0, -110, false],
+                    ['timeSlot', 130, -95, false],
+                    ['status', -145, -5, false],
+                    ['sessionType', 150, -5, false],
+                    ['reason', 0, -185, false],
+                ]],
+
+                // TOP LEFT
+                ['CounsellorProfile', 365, 345, 'Has Profile', [
+                    ['registrationNo', -45, -105, false],
+                    ['specializations', 135, -95, false],
+                    ['nmcStatus', -130, 10, false],
+                    ['languages', -75, 100, false],
+                    ['availability', 110, 90, false],
+                    ['experienceYrs', 10, -110, false],
+                ]],
+
+                // TOP RIGHT
+                ['PatientRecord', 1895, 345, 'Manages', [
+                    ['riskLevel', -20, -100, false],
+                    ['progressScore', 140, -80, false],
+                    ['totalSessions', 155, 15, false],
+                    ['currentMood', 130, 90, false],
+                    ['lastSessionDate', 20, 110, false],
+                    ['goalsCompleted', -110, 95, false],
+                ]],
+
+                // LEFT UPPER
+                ['ActivityLog', 110, 695, 'Generates', [
+                    ['action', -80, -80, false],
+                    ['category', -110, 0, false],
+                    ['timestamp', -80, 80, false],
+                    ['ipAddress', 40, 100, false],
+                    ['userAgent', 20, -105, false],
+                ]],
+
+                // LEFT LOWER
+                ['WellnessGoal', 110, 1040, 'Sets Goal', [
+                    ['title', -80, -80, false],
+                    ['progress', -110, 0, false],
+                    ['isActive', -80, 80, false],
+                    ['category', 40, 95, false],
+                ]],
+
+                // RIGHT UPPER
+                ['SecurityLog', 2150, 695, 'Records', [
+                    ['event', 105, -75, false],
+                    ['severity', 130, 0, false],
+                    ['timestamp', 105, 75, false],
+                    ['success', 0, -105, false],
+                    ['ipAddress', 0, 105, false],
+                ]],
+
+                // RIGHT LOWER
+                ['ConsultationSession', 2135, 1050, 'Conducts', [
+                    ['_id', 85, -100, true],
+                    ['status', 130, -20, false],
+                    ['messages', 115, 65, false],
+                    ['sessionNotes', 35, 115, false],
+                    ['startedAt', -90, 105, false],
+                ]],
+
+                // BOTTOM LEFT
+                ['BreathingSession', 345, 1465, 'Performs', [
+                    ['exerciseType', -95, 80, false],
+                    ['durationSecs', 10, 115, false],
+                    ['completedAt', 110, 80, false],
+                ]],
+
+                // BOTTOM CENTER-LEFT
+                ['JournalEntry', 865, 1555, 'Writes', [
+                    ['title', -115, 75, false],
+                    ['content', 0, 115, false],
+                    ['sharedWith', 120, 75, false],
+                    ['createdAt', -148, 0, false],
+                ]],
+
+                // BOTTOM CENTER-RIGHT
+                ['Resource', 1395, 1555, 'Views', [
+                    ['title', -100, 80, false],
+                    ['type', 10, 120, false],
+                    ['category', 115, 80, false],
+                    ['url', -145, 0, false],
+                ]],
+
+                // BOTTOM RIGHT
+                ['MoodLog', 1800, 1488, 'Logs', [
+                    ['moodLabel', 100, 80, false],
+                    ['intensity', 135, 0, false],
+                    ['timestamp', 105, -80, false],
+                    ['factors', 5, 115, false],
+                ]],
+            ];
+
+            for (const [lbl, ex, ey, rel, attrs] of entities) {
+                // Diamond at midpoint between entity and User
+                const dmx = Math.round((ex + UX) / 2);
+                const dmy = Math.round((ey + UY) / 2);
+
+                // Lines (drawn in gLines – behind shapes)
+                ln(UX, UY, dmx, dmy);
+                ln(ex, ey, dmx, dmy);
+                for (const [, dx, dy] of attrs) ln(ex + dx, ey + dy, ex, ey);
+
+                // Shapes
+                entityBox(ex, ey, lbl);
+                diamond(dmx, dmy, rel);
+                for (const [albl, dx, dy, ul] of attrs) attrEllipse(ex + dx, ey + dy, albl, ul || false);
+            }
+
+        })();
+    </script>
+</body>
+
+</html>
