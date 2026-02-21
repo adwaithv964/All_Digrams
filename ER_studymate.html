@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ER Diagram - Academic Result Predictor</title>
+<style>
+  body { margin: 0; background: #f5f5f5; font-family: Arial, sans-serif; }
+  h1 { text-align: center; padding: 16px; font-size: 20px; background: #fff; border-bottom: 2px solid #333; margin: 0; }
+  #container { overflow: auto; width: 100vw; height: calc(100vh - 56px); }
+  canvas { display: block; cursor: grab; }
+</style>
+</head>
+<body>
+<h1>Entity Relationship Diagram &mdash; Academic Result Predictor</h1>
+<div id="container"><canvas id="c"></canvas></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 4200, H = 3200;
+canvas.width = W; canvas.height = H;
+
+// ─── drawing helpers ───────────────────────────────────────────
+function rect(x,y,w,h,label){
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#000'; ctx.lineWidth=1.8;
+  ctx.fillRect(x-w/2,y-h/2,w,h);
+  ctx.strokeRect(x-w/2,y-h/2,w,h);
+  ctx.fillStyle='#000'; ctx.font='bold 13px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,x,y);
+}
+function ellipse(x,y,rx,ry,label,key=false){
+  ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#000'; ctx.font=(key?'bold ':'')+'11px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(key){
+    ctx.save();
+    const m=ctx.measureText(label);
+    ctx.beginPath();
+    ctx.moveTo(x-m.width/2-1,y+6);
+    ctx.lineTo(x+m.width/2+1,y+6);
+    ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillText(label,x,y);
+}
+function diamond(x,y,w,h,label){
+  const hw=w/2,hh=h/2;
+  ctx.beginPath();
+  ctx.moveTo(x,y-hh); ctx.lineTo(x+hw,y); ctx.lineTo(x,y+hh); ctx.lineTo(x-hw,y); ctx.closePath();
+  ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='#000'; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.fillStyle='#000'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,x,y);
+}
+function line(x1,y1,x2,y2){
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.2; ctx.stroke();
+}
+function card(x,y,txt){ // cardinality label
+  ctx.fillStyle='#000'; ctx.font='11px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(txt,x,y);
+}
+
+// ─── layout ────────────────────────────────────────────────────
+// Central User entity
+const UX=2100, UY=1600;
+
+// ── User entity ─────────────────────────────────────────────────
+rect(UX,UY,140,36,'User');
+
+const userAttrs=[
+  ['_id',0,-100,true],['firstName',-130,-60,false],['lastName',130,-60,false],
+  ['email',-160,0,false],['studentId',160,0,false],
+  ['authUid',-150,55,false],['role',0,100,false],
+  ['level',-110,90,false],['xp',110,90,false],
+  ['points',-130,140,false],['streak',130,140,false],
+  ['institution',0,-140,false],['major',-160,-100,false],
+  ['graduationYear',170,-100,false],['createdAt',0,155,false],
+];
+userAttrs.forEach(([lbl,dx,dy,key])=>{
+  const ax=UX+dx, ay=UY+dy;
+  line(UX,UY,ax,ay);
+  ellipse(ax,ay,48,16,lbl,key);
+});
+
+// ─── helper: draw satellite entity with attributes & relationship ──
+function satellite(ex,ey,ename,eattrs,relx,rely,relname,card1,card2){
+  // relationship diamond
+  diamond(relx,rely,90,40,relname);
+  // lines: User <-> diamond <-> entity
+  line(UX,UY,relx,rely);
+  line(relx,rely,ex,ey);
+  card(relx+(UX-relx)*0.3,rely+(UY-rely)*0.3-8,card1);
+  card(relx+(ex-relx)*0.3,rely+(ey-rely)*0.3-8,card2);
+  // entity box
+  rect(ex,ey,140,36,ename);
+  // attributes
+  eattrs.forEach(([lbl,dx,dy,key])=>{
+    const ax=ex+dx, ay=ey+dy;
+    line(ex,ey,ax,ay);
+    ellipse(ax,ay,44,15,lbl,key);
+  });
+}
+
+// ─── Course ─────────────────────────────────────────────────────
+satellite(
+  3350, 900,  'Course',
+  [['_id',0,-80,true],['name',-110,-40,false],['code',110,-40,false],
+   ['credits',-130,10,false],['instructor',130,10,false],
+   ['grade',-110,55,false],['term',110,55,false],
+   ['color',-90,100,false],['progress',90,100,false],['createdAt',0,120,false]],
+  2780, 1200, 'Has', '1', 'N'
+);
+
+// ─── Task ────────────────────────────────────────────────────────
+satellite(
+  3350, 1600, 'Task',
+  [['_id',0,-80,true],['title',-100,-40,false],['subject',110,-40,false],
+   ['priority',-120,10,false],['dueDate',120,10,false],
+   ['type',-90,55,false],['completed',90,55,false],['createdAt',0,95,false]],
+  2800, 1600, 'Has', '1', 'N'
+);
+
+// ─── StudySession ────────────────────────────────────────────────
+satellite(
+  3350, 2300, 'StudySession',
+  [['_id',0,-90,true],['subject',-120,-50,false],['topic',125,-50,false],
+   ['date',-130,0,false],['startTime',130,0,false],
+   ['duration',-120,50,false],['priority',120,50,false],
+   ['type',-100,95,false],['location',100,95,false],
+   ['isCompleted',0,130,false],['createdAt',0,-130,false]],
+  2800, 2050, 'Does', '1', 'N'
+);
+
+// ─── EisenhowerTask ──────────────────────────────────────────────
+satellite(
+  3350, 2900, 'EisenhowerTask',
+  [['_id',0,-75,true],['title',-110,-35,false],['quad',110,-35,false],['createdAt',0,80,false]],
+  2820, 2650, 'Manages', '1', 'N'
+);
+
+// ─── Prediction ──────────────────────────────────────────────────
+satellite(
+  1400, 400, 'Prediction',
+  [['_id',0,-85,true],['courseName',-130,-45,false],['currentGrade',130,-45,false],
+   ['predictedGrade',-140,10,false],['rangeLow',140,10,false],
+   ['rangeHigh',-120,55,false],['timestamp',120,55,false]],
+  1750, 850, 'Generates', '1', 'N'
+);
+
+// ─── Exam ────────────────────────────────────────────────────────
+satellite(
+  2100, 400, 'Exam',
+  [['_id',-110,-75,true],['subject',90,-75,false],['date',-130,-30,false],
+   ['time',130,-30,false],['note',-110,25,false],['period',110,25,false],
+   ['color',0,70,false],['createdAt',0,-110,false]],
+  2100, 850, 'Schedules', '1', 'N'
+);
+
+// ─── Event ───────────────────────────────────────────────────────
+satellite(
+  2800, 400, 'Event',
+  [['_id',0,-85,true],['title',-110,-45,false],['description',120,-45,false],
+   ['date',-110,10,false],['time',110,10,false],
+   ['color',-100,55,false],['isCompleted',110,55,false],['createdAt',0,90,false]],
+  2450, 850, 'Creates', '1', 'N'
+);
+
+// ─── Document ────────────────────────────────────────────────────
+satellite(
+  900, 900, 'Document',
+  [['_id',0,-80,true],['name',-110,-40,false],['subject',110,-40,false],
+   ['type',-110,15,false],['size',110,15,false],
+   ['contentType',-120,60,false],['uploadDate',120,60,false]],
+  1300, 1200, 'Uploads', '1', 'N'
+);
+
+// ─── WebReference ────────────────────────────────────────────────
+satellite(
+  700, 1500, 'WebReference',
+  [['_id',0,-80,true],['url',-110,-40,false],['title',110,-40,false],
+   ['subject',-110,15,false],['type',110,15,false],['dateAdded',0,65,false]],
+  1300, 1550, 'Saves', '1', 'N'
+);
+
+// ─── ActivityLog ─────────────────────────────────────────────────
+satellite(
+  800, 2050, 'ActivityLog',
+  [['_id',0,-85,true],['type',-110,-45,false],['title',110,-45,false],
+   ['description',-130,10,false],['metadata',130,10,false],['timestamp',0,70,false]],
+  1350, 1850, 'Logs', '1', 'N'
+);
+
+// ─── Term ────────────────────────────────────────────────────────
+satellite(
+  750, 2600, 'Term',
+  [['_id',0,-80,true],['name',-100,-40,false],['startDate',110,-40,false],
+   ['endDate',-110,15,false],['defaultDuration',130,15,false],['createdAt',0,65,false]],
+  1350, 2300, 'Has', '1', 'N'
+);
+
+// ─── Vacation ────────────────────────────────────────────────────
+satellite(
+  1050, 3000, 'Vacation',
+  [['_id',0,-80,true],['title',-100,-40,false],['startDate',110,-40,false],
+   ['endDate',-110,15,false],['days',100,15,false],['createdAt',0,65,false]],
+  1500, 2800, 'Takes', '1', 'N'
+);
+
+// ─── Scenario ────────────────────────────────────────────────────
+satellite(
+  2100, 3000, 'Scenario',
+  [['_id',0,-85,true],['name',-110,-45,false],['description',120,-45,false],
+   ['projectedGPA',-130,10,false],['createdAt',110,10,false]],
+  2100, 2650, 'Simulates', '1', 'N'
+);
+
+// ─── SystemLog (optional user ref) ───────────────────────────────
+satellite(
+  3200, 3050, 'SystemLog',
+  [['_id',0,-80,true],['level',-110,-40,false],['message',120,-40,false],
+   ['ip',-100,15,false],['timestamp',110,15,false]],
+  2750, 2850, 'Records', '0..1', 'N'
+);
+
+// ─── GlobalCourse (standalone, admin managed) ────────────────────
+const GX=500, GY=3050;
+rect(GX,GY,140,36,'GlobalCourse');
+const gcAttrs=[
+  ['_id',0,-85,true],['code',-110,-45,false],['name',110,-45,false],
+  ['credits',-110,15,false],['description',115,15,false],
+  ['department',-120,65,false],['createdAt',120,65,false],
+];
+gcAttrs.forEach(([lbl,dx,dy,key])=>{
+  const ax=GX+dx, ay=GY+dy;
+  line(GX,GY,ax,ay);
+  ellipse(ax,ay,48,15,lbl,key);
+});
+ctx.fillStyle='#555'; ctx.font='italic 11px Arial'; ctx.textAlign='center';
+ctx.fillText('(Admin-managed catalog)',GX,GY+120);
+
+// ─── SystemSettings (standalone) ─────────────────────────────────
+const SX=500, SY=1600;
+rect(SX,SY,140,36,'SystemSettings');
+const ssAttrs=[
+  ['_id',0,-80,true],['maintenanceMode',-130,-40,false],['allowRegistration',150,-40,false],
+  ['systemEmail',-130,15,false],['updatedAt',130,15,false],
+];
+ssAttrs.forEach(([lbl,dx,dy,key])=>{
+  const ax=SX+dx, ay=SY+dy;
+  line(SX,SY,ax,ay);
+  ellipse(ax,ay,56,15,lbl,key);
+});
+ctx.fillStyle='#555'; ctx.font='italic 11px Arial'; ctx.textAlign='center';
+ctx.fillText('(Singleton)',SX,SY+75);
+
+// ─── border / background ─────────────────────────────────────────
+ctx.strokeStyle='#aaa'; ctx.lineWidth=2;
+ctx.strokeRect(10,10,W-20,H-20);
+
+// ─── legend ──────────────────────────────────────────────────────
+const LX=80, LY=H-200;
+ctx.fillStyle='#333'; ctx.font='bold 13px Arial'; ctx.textAlign='left';
+ctx.fillText('Legend:',LX,LY);
+rect(LX+70,LY+30,90,26,'Entity');
+ellipse(LX+220,LY+30,50,16,'Attribute');
+diamond(LX+350,LY+30,90,36,'Relationship');
+ctx.fillStyle='#333'; ctx.font='12px Arial';
+ctx.fillText('1  =  one',LX+30,LY+85);
+ctx.fillText('N  =  many',LX+30,LY+105);
+ctx.fillText('Underlined attr = Primary Key',LX+30,LY+125);
+// PK example
+ellipse(LX+260,LY+95,30,14,'_id',true);
+
+// scroll support
+const container=document.getElementById('container');
+let drag=false,sx=0,sy=0,sl=0,st=0;
+container.addEventListener('mousedown',e=>{drag=true;sx=e.clientX;sy=e.clientY;sl=container.scrollLeft;st=container.scrollTop;container.style.cursor='grabbing';});
+container.addEventListener('mousemove',e=>{if(!drag)return;container.scrollLeft=sl-(e.clientX-sx);container.scrollTop=st-(e.clientY-sy);});
+container.addEventListener('mouseup',()=>{drag=false;container.style.cursor='grab';});
+</script>
+</body>
+</html>
