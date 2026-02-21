@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sequence Diagram – Academic Result Predictor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            background: #f5f5f5;
+            font-family: Arial, sans-serif
+        }
+
+        h1 {
+            text-align: center;
+            padding: 14px;
+            font-size: 18px;
+            background: #fff;
+            border-bottom: 2px solid #333
+        }
+
+        #wrap {
+            overflow: auto;
+            width: 100vw;
+            height: calc(100vh - 50px);
+            cursor: grab
+        }
+
+        canvas {
+            display: block
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sequence Diagram &mdash; Academic Result Predictor</h1>
+    <div id="wrap"><canvas id="c"></canvas></div>
+    <script>
+        const CV = document.getElementById('c');
+        const cx = CV.getContext('2d');
+
+        // ── Participants ────────────────────────────────────────────────
+        const PARTS = ['Student', 'Admin', 'Frontend\n(React)', 'Backend\n(Express)', 'MongoDB', 'Firebase\nAuth', 'Gemini\nAI'];
+        const NP = PARTS.length;
+        const GAP = 210;      // horizontal spacing
+        const MARGIN = 100;   // left margin
+        const BOX_W = 120, BOX_H = 36;
+        const LINE_H = 28;    // vertical step per message
+
+        // ── Flows (grouped) ─────────────────────────────────────────────
+        // Each flow: { title, msgs: [{ from, to, label, ret }] }
+        // from/to = participant index (0-based)
+        // ret=true → dashed return arrow
+        const F = [
+            {
+                title: '1. Authentication & Onboarding',
+                msgs: [
+                    { f: 0, t: 2, l: 'Register / Login' },
+                    { f: 2, t: 5, l: 'signInWithEmailAndPassword()' },
+                    { f: 5, t: 2, l: 'Firebase UID + Token', r: 1 },
+                    { f: 2, t: 3, l: 'POST /api/auth/register { authUid }' },
+                    { f: 3, t: 4, l: 'User.findOneAndUpdate(authUid)' },
+                    { f: 4, t: 3, l: 'User record', r: 1 },
+                    { f: 3, t: 2, l: '{ user, role }', r: 1 },
+                    { f: 2, t: 0, l: 'Route to Dashboard / Onboarding', r: 1 },
+                ]
+            },
+            {
+                title: '2. Dashboard Load',
+                msgs: [
+                    { f: 0, t: 2, l: 'Open Dashboard' },
+                    { f: 2, t: 3, l: 'GET /api/user (Bearer token)' },
+                    { f: 3, t: 5, l: 'verifyIdToken(token)' },
+                    { f: 5, t: 3, l: 'Decoded UID', r: 1 },
+                    { f: 3, t: 4, l: 'User.findOne({ authUid })' },
+                    { f: 4, t: 3, l: 'User profile', r: 1 },
+                    { f: 3, t: 2, l: 'Profile data', r: 1 },
+                    { f: 2, t: 0, l: 'Render stats, streak, level', r: 1 },
+                ]
+            },
+            {
+                title: '3. Course Management',
+                msgs: [
+                    { f: 0, t: 2, l: 'Add / Edit / Delete Course' },
+                    { f: 2, t: 3, l: 'POST/PUT/DELETE /api/courses' },
+                    { f: 3, t: 4, l: 'Course.save() / findByIdAndUpdate()' },
+                    { f: 4, t: 3, l: 'Updated course list', r: 1 },
+                    { f: 3, t: 2, l: '200 OK + courses', r: 1 },
+                    { f: 2, t: 0, l: 'UI updated', r: 1 },
+                ]
+            },
+            {
+                title: '4. Grade Prediction (AI + Monte Carlo)',
+                msgs: [
+                    { f: 0, t: 2, l: 'Submit course + grade + context' },
+                    { f: 2, t: 3, l: 'POST /api/predict' },
+                    { f: 3, t: 4, l: 'fetch StudySessions & Tasks for context' },
+                    { f: 4, t: 3, l: 'studyData', r: 1 },
+                    { f: 3, t: 6, l: 'analyzeContextAndSimulate(prompt)' },
+                    { f: 6, t: 3, l: 'parameters { volatility, trend… }', r: 1 },
+                    { f: 3, t: 3, l: 'runSmartMonteCarlo(grade, params)' },
+                    { f: 3, t: 4, l: 'Prediction.save()' },
+                    { f: 4, t: 3, l: 'Saved prediction', r: 1 },
+                    { f: 3, t: 2, l: '{ predictedGrade, rangeLow, rangeHigh, distribution }', r: 1 },
+                    { f: 2, t: 0, l: 'Display prediction chart', r: 1 },
+                ]
+            },
+            {
+                title: '5. Task Management (To-Do)',
+                msgs: [
+                    { f: 0, t: 2, l: 'Create / Complete / Delete Task' },
+                    { f: 2, t: 3, l: 'POST/PUT/DELETE /api/tasks' },
+                    { f: 3, t: 4, l: 'Task.save()' },
+                    { f: 4, t: 3, l: 'Updated task', r: 1 },
+                    { f: 3, t: 2, l: '200 OK', r: 1 },
+                    { f: 2, t: 0, l: 'Task list updated', r: 1 },
+                ]
+            },
+            {
+                title: '6. Eisenhower Matrix',
+                msgs: [
+                    { f: 0, t: 2, l: 'Add task to quadrant (1-4)' },
+                    { f: 2, t: 3, l: 'POST /api/eisenhower-tasks { title, quad }' },
+                    { f: 3, t: 4, l: 'EisenhowerTask.save()' },
+                    { f: 4, t: 3, l: 'Saved task', r: 1 },
+                    { f: 3, t: 2, l: 'Task + all quadrant tasks', r: 1 },
+                    { f: 2, t: 0, l: 'Matrix updated', r: 1 },
+                ]
+            },
+            {
+                title: '7. Study Planner',
+                msgs: [
+                    { f: 0, t: 2, l: 'Schedule / Edit study session' },
+                    { f: 2, t: 3, l: 'POST/PUT /api/study-sessions' },
+                    { f: 3, t: 4, l: 'StudySession.save()' },
+                    { f: 4, t: 3, l: 'Updated session', r: 1 },
+                    { f: 3, t: 2, l: 'Session list', r: 1 },
+                    { f: 2, t: 0, l: 'Planner updated', r: 1 },
+                ]
+            },
+            {
+                title: '8. Calendar – Events, Exams & Vacations',
+                msgs: [
+                    { f: 0, t: 2, l: 'Add Event / Exam / Vacation / Term' },
+                    { f: 2, t: 3, l: 'POST /api/events|exams|vacations|terms' },
+                    { f: 3, t: 4, l: 'Event|Exam|Vacation|Term.save()' },
+                    { f: 4, t: 3, l: 'Saved record', r: 1 },
+                    { f: 3, t: 2, l: 'Calendar data', r: 1 },
+                    { f: 2, t: 0, l: 'Calendar refreshed (Day/Week/Month view)', r: 1 },
+                ]
+            },
+            {
+                title: '9. Document Upload (Data Room)',
+                msgs: [
+                    { f: 0, t: 2, l: 'Upload file (note/paper/assignment)' },
+                    { f: 2, t: 3, l: 'POST /api/documents (multipart)' },
+                    { f: 3, t: 4, l: 'Document.save({ data: Buffer })' },
+                    { f: 4, t: 3, l: 'Document metadata', r: 1 },
+                    { f: 3, t: 2, l: '200 OK + doc list', r: 1 },
+                    { f: 2, t: 0, l: 'File listed in Digital Backpack', r: 1 },
+                ]
+            },
+            {
+                title: '10. Web References',
+                msgs: [
+                    { f: 0, t: 2, l: 'Add web reference (URL + subject)' },
+                    { f: 2, t: 3, l: 'POST /api/web-references' },
+                    { f: 3, t: 4, l: 'WebReference.save()' },
+                    { f: 4, t: 3, l: 'Saved reference', r: 1 },
+                    { f: 3, t: 2, l: 'Reference list', r: 1 },
+                    { f: 2, t: 0, l: 'Reference shown in Data Room', r: 1 },
+                ]
+            },
+            {
+                title: '16. Achievements',
+                msgs: [
+                    { f: 0, t: 2, l: 'View Achievements page' },
+                    { f: 2, t: 3, l: 'GET /api/achievements' },
+                    { f: 3, t: 4, l: 'User.achievements Map' },
+                    { f: 4, t: 3, l: 'Achievement tiers', r: 1 },
+                    { f: 3, t: 2, l: 'Achievement data', r: 1 },
+                    { f: 2, t: 0, l: 'Progress bars + badges rendered', r: 1 },
+                ]
+            },
+            {
+                title: '12. Leaderboard',
+                msgs: [
+                    { f: 0, t: 2, l: 'View Leaderboard' },
+                    { f: 2, t: 3, l: 'GET /api/leaderboard' },
+                    { f: 3, t: 4, l: 'User.find().sort(points:-1).limit(10)' },
+                    { f: 4, t: 3, l: 'Top 10 users', r: 1 },
+                    { f: 3, t: 2, l: 'Ranked user list', r: 1 },
+                    { f: 2, t: 0, l: 'Leaderboard table rendered', r: 1 },
+                ]
+            },
+            {
+                title: '13. Activity History',
+                msgs: [
+                    { f: 0, t: 2, l: 'Open History page' },
+                    { f: 2, t: 3, l: 'GET /api/history' },
+                    { f: 3, t: 4, l: 'ActivityLog.find(userId).sort(-50)' },
+                    { f: 4, t: 3, l: 'Activity logs', r: 1 },
+                    { f: 3, t: 2, l: 'Log entries', r: 1 },
+                    { f: 2, t: 0, l: 'Timeline rendered', r: 1 },
+                ]
+            },
+            {
+                title: '14. Profile & Settings',
+                msgs: [
+                    { f: 0, t: 2, l: 'Update profile / academicSettings / preferences' },
+                    { f: 2, t: 3, l: 'PUT /api/user/profile' },
+                    { f: 3, t: 4, l: 'User.findByIdAndUpdate()' },
+                    { f: 4, t: 3, l: 'Updated user', r: 1 },
+                    { f: 3, t: 2, l: '200 OK', r: 1 },
+                    { f: 2, t: 0, l: 'Settings saved', r: 1 },
+                ]
+            },
+            {
+                title: '15. Admin – Dashboard & User Management',
+                msgs: [
+                    { f: 1, t: 2, l: 'Open Admin Panel' },
+                    { f: 2, t: 3, l: 'GET /api/admin/stats (admin token)' },
+                    { f: 3, t: 4, l: 'Aggregate User, Course, Prediction counts' },
+                    { f: 4, t: 3, l: 'Stats', r: 1 },
+                    { f: 3, t: 2, l: 'Dashboard stats', r: 1 },
+                    { f: 1, t: 2, l: 'View / Delete user' },
+                    { f: 2, t: 3, l: 'GET|DELETE /api/admin/users/:id' },
+                    { f: 3, t: 4, l: 'User.findById / deleteOne' },
+                    { f: 4, t: 3, l: 'Result', r: 1 },
+                    { f: 3, t: 2, l: 'User list updated', r: 1 },
+                ]
+            },
+            {
+                title: '16. Admin – System Settings & Maintenance',
+                msgs: [
+                    { f: 1, t: 2, l: 'Toggle maintenance mode / registration' },
+                    { f: 2, t: 3, l: 'PUT /api/admin/settings' },
+                    { f: 3, t: 4, l: 'SystemSettings.getInstance().save()' },
+                    { f: 4, t: 3, l: 'Updated settings', r: 1 },
+                    { f: 3, t: 2, l: '200 OK + new settings', r: 1 },
+                    { f: 2, t: 1, l: 'Settings confirmed', r: 1 },
+                ]
+            },
+        ];
+
+        // ── Measure total height ─────────────────────────────────────────
+        const TOP_PAD = 80;       // space for boxes at top
+        const BOT_PAD = 80;       // space for boxes at bottom
+        const SECTION_PAD = 60;   // gap between sections
+        const TITLE_H = 28;
+
+        let totalHeight = TOP_PAD;
+        F.forEach(fl => {
+            totalHeight += TITLE_H + fl.msgs.length * LINE_H + SECTION_PAD;
+        });
+        totalHeight += BOT_PAD;
+
+        const totalWidth = MARGIN * 2 + NP * GAP;
+        CV.width = totalWidth; CV.height = totalHeight;
+
+        cx.fillStyle = '#fff';
+        cx.fillRect(0, 0, totalWidth, totalHeight);
+
+        // ── Participant x positions ─────────────────────────────────────
+        function px(i) { return MARGIN + i * GAP + GAP / 2; }
+
+        // ── Draw boxes ─────────────────────────────────────────────────
+        function drawBox(i, y) {
+            const x = px(i) - BOX_W / 2;
+            cx.fillStyle = '#fff'; cx.strokeStyle = '#000'; cx.lineWidth = 1.5;
+            cx.fillRect(x, y, BOX_W, BOX_H);
+            cx.strokeRect(x, y, BOX_W, BOX_H);
+            cx.fillStyle = '#000'; cx.font = 'bold 11px Arial';
+            cx.textAlign = 'center'; cx.textBaseline = 'middle';
+            const lines = PARTS[i].split('\n');
+            if (lines.length === 1) cx.fillText(lines[0], px(i), y + BOX_H / 2);
+            else { cx.fillText(lines[0], px(i), y + BOX_H / 2 - 7); cx.fillText(lines[1], px(i), y + BOX_H / 2 + 7); }
+        }
+
+        // ── Draw dashed lifeline ───────────────────────────────────────
+        function drawLifelines(yStart, yEnd) {
+            cx.save(); cx.setLineDash([5, 4]); cx.strokeStyle = '#555'; cx.lineWidth = 1;
+            for (let i = 0; i < NP; i++) {
+                cx.beginPath(); cx.moveTo(px(i), yStart); cx.lineTo(px(i), yEnd); cx.stroke();
+            }
+            cx.restore();
+        }
+
+        // ── Arrow ──────────────────────────────────────────────────────
+        function arrow(x1, x2, y, lbl, dashed) {
+            cx.save();
+            if (dashed) cx.setLineDash([5, 4]); else cx.setLineDash([]);
+            cx.strokeStyle = '#000'; cx.lineWidth = 1.2;
+            cx.beginPath(); cx.moveTo(x1, y); cx.lineTo(x2, y); cx.stroke();
+            // arrowhead
+            const dir = x2 > x1 ? 1 : -1;
+            cx.fillStyle = '#000';
+            cx.beginPath();
+            cx.moveTo(x2, y);
+            cx.lineTo(x2 - dir * 9, y - 5);
+            cx.lineTo(x2 - dir * 9, y + 5);
+            cx.closePath(); cx.fill();
+            // label
+            const mx = (x1 + x2) / 2;
+            cx.fillStyle = '#000'; cx.font = '10px Arial'; cx.textAlign = 'center'; cx.textBaseline = 'bottom';
+            cx.fillText(lbl, mx, y - 2);
+            cx.restore();
+        }
+
+        // ── Self-arrow (note on same participant) ─────────────────────
+        function selfArrow(xi, y, lbl) {
+            const x = px(xi); const off = 50;
+            cx.save(); cx.setLineDash([]); cx.strokeStyle = '#000'; cx.lineWidth = 1.2;
+            cx.beginPath();
+            cx.moveTo(x, y - 4);
+            cx.lineTo(x + off, y - 4);
+            cx.lineTo(x + off, y + 10);
+            cx.lineTo(x, y + 10);
+            cx.stroke();
+            cx.fillStyle = '#000';
+            cx.beginPath(); cx.moveTo(x, y + 10); cx.lineTo(x + 8, y + 5); cx.lineTo(x + 8, y + 15); cx.closePath(); cx.fill();
+            cx.font = '10px Arial'; cx.textAlign = 'left'; cx.textBaseline = 'middle';
+            cx.fillText(lbl, x + off + 4, y + 3);
+            cx.restore();
+        }
+
+        // ── Section title ─────────────────────────────────────────────
+        function sectionTitle(lbl, y) {
+            cx.fillStyle = '#336699';
+            cx.fillRect(0, y, totalWidth, TITLE_H);
+            cx.fillStyle = '#fff'; cx.font = 'bold 12px Arial';
+            cx.textAlign = 'left'; cx.textBaseline = 'middle';
+            cx.fillText(lbl, 12, y + TITLE_H / 2);
+        }
+
+        // ── RENDER ────────────────────────────────────────────────────
+        // Top boxes
+        for (let i = 0; i < NP; i++) drawBox(i, 20);
+
+        let cy = TOP_PAD; // current y
+
+        F.forEach(fl => {
+            // section banner
+            sectionTitle(fl.title, cy);
+            cy += TITLE_H;
+
+            // lifelines for this section
+            const lEnd = cy + fl.msgs.length * LINE_H + SECTION_PAD * 0.6;
+            drawLifelines(cy, lEnd);
+
+            fl.msgs.forEach(m => {
+                cy += LINE_H;
+                if (m.f === m.t) {
+                    selfArrow(m.f, cy, m.l);
+                } else {
+                    arrow(px(m.f), px(m.t), cy, m.l, !!m.r);
+                }
+            });
+
+            cy += SECTION_PAD;
+        });
+
+        // Bottom boxes
+        for (let i = 0; i < NP; i++) drawBox(i, cy);
+
+        // Border
+        cx.strokeStyle = '#aaa'; cx.lineWidth = 2;
+        cx.strokeRect(4, 4, totalWidth - 8, totalHeight - 8);
+
+        // Legend
+        const lx = 10, ly = totalHeight - 55;
+        cx.fillStyle = '#fff'; cx.fillRect(lx, ly, 320, 48);
+        cx.strokeStyle = '#999'; cx.lineWidth = 1; cx.strokeRect(lx, ly, 320, 48);
+        cx.fillStyle = '#333'; cx.font = 'bold 11px Arial'; cx.textAlign = 'left';
+        cx.fillText('Legend:', lx + 8, ly + 14);
+        cx.font = '10px Arial';
+        cx.save(); cx.setLineDash([]); cx.strokeStyle = '#000'; cx.lineWidth = 1.2;
+        cx.beginPath(); cx.moveTo(lx + 80, ly + 14); cx.lineTo(lx + 130, ly + 14); cx.stroke();
+        cx.restore();
+        cx.fillText('→ Request/Action', lx + 135, ly + 14);
+        cx.save(); cx.setLineDash([5, 4]); cx.strokeStyle = '#000'; cx.lineWidth = 1.2;
+        cx.beginPath(); cx.moveTo(lx + 80, ly + 32); cx.lineTo(lx + 130, ly + 32); cx.stroke();
+        cx.restore();
+        cx.fillText('- - → Response', lx + 135, ly + 32);
+
+        // ── Drag scroll ───────────────────────────────────────────────
+        const wrap = document.getElementById('wrap');
+        let drag = false, sx = 0, sy = 0, sl = 0, st = 0;
+        wrap.addEventListener('mousedown', e => { drag = true; sx = e.clientX; sy = e.clientY; sl = wrap.scrollLeft; st = wrap.scrollTop; wrap.style.cursor = 'grabbing'; });
+        wrap.addEventListener('mousemove', e => { if (!drag) return; wrap.scrollLeft = sl - (e.clientX - sx); wrap.scrollTop = st - (e.clientY - sy); });
+        wrap.addEventListener('mouseup', () => { drag = false; wrap.style.cursor = 'grab'; });
+    </script>
+</body>
+
+</html>
